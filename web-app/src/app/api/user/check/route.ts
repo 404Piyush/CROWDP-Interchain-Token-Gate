@@ -1,26 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { connectToDatabase } from '../../../lib/mongodb';
+import { withRateLimit } from '../../../lib/rate-limiter';
+import { createSecureResponse, createSecureErrorResponse } from '@/lib/security-headers';
 
-export async function POST(request: NextRequest) {
+async function checkUserHandler(request: NextRequest) {
   try {
     const { walletAddress } = await request.json();
     
     if (!walletAddress) {
-      return NextResponse.json(
-        { error: 'Wallet address is required' },
-        { status: 400 }
-      );
+      return createSecureErrorResponse('Wallet address is required', 400);
     }
 
     const { db } = await connectToDatabase();
     const user = await db.collection('users').findOne({ walletAddress });
     
-    return NextResponse.json({ exists: !!user });
+    return createSecureResponse({ exists: !!user });
   } catch (error) {
     console.error('Error checking user:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return createSecureErrorResponse('Internal server error', 500);
   }
 }
+
+// Apply rate limiting to the POST endpoint
+export const POST = withRateLimit(checkUserHandler, 'default');

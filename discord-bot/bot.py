@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import asyncio
 import logging
 from database import db
+from balance_monitor import BalanceMonitor
 
 # Load environment variables
 load_dotenv()
@@ -29,6 +30,9 @@ class VerifierBot(commands.Bot):
             help_command=None
         )
         
+        # Initialize balance monitor
+        self.balance_monitor = BalanceMonitor(bot_instance=self)
+        
     async def setup_hook(self):
         """Called when the bot is starting up"""
         logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
@@ -48,6 +52,30 @@ class VerifierBot(commands.Bot):
         except Exception as e:
             logger.error(f"Failed to load role commands: {e}")
         
+        # Start balance monitoring
+        try:
+            self.balance_monitor.start_monitoring()
+            logger.info("Balance monitoring started")
+        except Exception as e:
+            logger.error(f"Failed to start balance monitoring: {e}")
+    
+    async def close(self):
+        """Called when the bot is shutting down"""
+        logger.info("Bot is shutting down...")
+        
+        # Stop balance monitoring
+        if hasattr(self, 'balance_monitor'):
+            self.balance_monitor.stop_monitoring()
+            logger.info("Balance monitoring stopped")
+        
+        # Disconnect from database
+        try:
+            await db.disconnect()
+            logger.info("Database connection closed")
+        except Exception as e:
+            logger.error(f"Error closing database connection: {e}")
+        
+        await super().close()
         # Sync commands globally
         try:
             synced = await self.tree.sync()

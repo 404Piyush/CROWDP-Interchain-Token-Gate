@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 const Footer = () => {
   return (
@@ -10,10 +11,12 @@ const Footer = () => {
           {/* Brand Section */}
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
-              <img 
+              <Image 
                 src="/imgs/logo.png" 
                 alt="CrowdPunk Logo" 
-                className="w-8 h-8 object-contain"
+                width={32}
+                height={32}
+                className="object-contain"
               />
               <span className="text-white font-bold text-lg">
                 CROWDPUNK

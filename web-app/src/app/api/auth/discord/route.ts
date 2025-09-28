@@ -1,36 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { withRateLimit } from '../../../lib/rate-limiter';
+import { createSecureResponse, createSecureErrorResponse } from '@/lib/security-headers';
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const walletAddress = searchParams.get('wallet');
-  
-  if (!walletAddress) {
-    return NextResponse.json(
-      { error: 'Wallet address is required' },
-      { status: 400 }
-    );
+async function discordAuthHandler(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const walletAddress = searchParams.get('wallet');
+    
+    if (!walletAddress) {
+      return createSecureErrorResponse('Wallet address is required', 400);
+    }
+
+    // Validate wallet address format (basic Cosmos bech32 validation)
+    if (!walletAddress.startsWith('osmo') || walletAddress.length < 39) {
+      return createSecureErrorResponse('Invalid wallet address format', 400);
+    }
+
+    // Generate Discord OAuth URL directly
+    const discordClientId = process.env.DISCORD_CLIENT_ID;
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const redirectUri = encodeURIComponent(`${baseUrl}/api/auth/discord/callback`);
+    const state = encodeURIComponent(JSON.stringify({ walletAddress }));
+    
+    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${discordClientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify&state=${state}`;
+
+    return createSecureResponse({
+      success: true,
+      discordAuthUrl
+    });
+  } catch (error) {
+    console.error('Error creating Discord auth URL:', error);
+    return createSecureErrorResponse('Internal server error', 500);
   }
-
-  const clientId = process.env.DISCORD_CLIENT_ID;
-  const redirectUri = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/discord/callback`;
-  
-  if (!clientId) {
-    return NextResponse.json(
-      { error: 'Discord OAuth not configured' },
-      { status: 500 }
-    );
-  }
-
-  // Create state parameter with wallet address
-  const state = encodeURIComponent(JSON.stringify({ walletAddress }));
-  
-  // Build Discord OAuth URL
-  const discordAuthUrl = new URL('https://discord.com/api/oauth2/authorize');
-  discordAuthUrl.searchParams.set('client_id', clientId);
-  discordAuthUrl.searchParams.set('redirect_uri', redirectUri);
-  discordAuthUrl.searchParams.set('response_type', 'code');
-  discordAuthUrl.searchParams.set('scope', 'identify guilds.join');
-  discordAuthUrl.searchParams.set('state', state);
-  
-  return NextResponse.redirect(discordAuthUrl.toString());
 }
+
+// Apply rate limiting to the GET endpoint
+export const GET = withRateLimit(discordAuthHandler, 'auth');

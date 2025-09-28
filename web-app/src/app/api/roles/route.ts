@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withRateLimit } from '../../lib/rate-limiter';
+import { createSecureResponse, createSecureErrorResponse } from '@/lib/security-headers';
 import { RoleDatabase } from '../../lib/database';
 
-export async function GET(request: NextRequest) {
+async function getRolesHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const wallet = searchParams.get('wallet');
@@ -15,33 +17,24 @@ export async function GET(request: NextRequest) {
           name: role.name,
           type: role.type,
           threshold: role.amountThreshold || 0,
-          description: role.type === 'amount' 
-            ? `${role.amountThreshold} OSMO` 
-            : 'Entry level trader with 1+ OSMO tokens'
+          description: role.description || (role.type === 'amount' 
+            ? `Member with ${role.amountThreshold}+ OSMO tokens` 
+            : `Holder of ${role.name} tokens`)
         }))
       });
     }
 
     if (!wallet) {
-      return NextResponse.json(
-        { error: 'Wallet address is required' },
-        { status: 400 }
-      );
+      return createSecureErrorResponse('Wallet address is required', 400);
     }
 
     if (!balance) {
-      return NextResponse.json(
-        { error: 'Balance is required' },
-        { status: 400 }
-      );
+      return createSecureErrorResponse('Balance is required', 400);
     }
 
     const balanceNumber = parseFloat(balance);
     if (isNaN(balanceNumber)) {
-      return NextResponse.json(
-        { error: 'Invalid balance format' },
-        { status: 400 }
-      );
+      return createSecureErrorResponse('Invalid balance format', 400);
     }
 
     // Get roles that the user qualifies for based on their balance
@@ -87,36 +80,35 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching roles:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return createSecureErrorResponse('Internal server error', 500);
   }
 }
 
-export async function POST(request: NextRequest) {
+// Apply rate limiting to the GET endpoint
+export const GET = withRateLimit(getRolesHandler, 'default');
+
+async function createRoleHandler(request: NextRequest) {
   try {
+    // Verify admin access for role creation
+    const { verifyAdminAccess } = await import('../../lib/auth');
+    const authResult = await verifyAdminAccess(request);
+    
+    if (!authResult.success) {
+      return createSecureErrorResponse(authResult.error || 'Unauthorized', 401);
+    }
+
     const { name, discordRoleId, amountThreshold, type } = await request.json();
 
     if (!name || !discordRoleId || !type) {
-      return NextResponse.json(
-        { error: 'Name, discordRoleId, and type are required' },
-        { status: 400 }
-      );
+      return createSecureErrorResponse('Name, discordRoleId, and type are required' , 400);
     }
 
     if (type !== 'holder' && type !== 'amount') {
-      return NextResponse.json(
-        { error: 'Type must be either "holder" or "amount"' },
-        { status: 400 }
-      );
+      return createSecureErrorResponse('Type must be either "holder" or "amount"', 400);
     }
 
     if (type === 'amount' && (!amountThreshold || amountThreshold <= 0)) {
-      return NextResponse.json(
-        { error: 'Amount threshold is required for amount-based roles and must be greater than 0' },
-        { status: 400 }
-      );
+      return createSecureErrorResponse('Amount threshold is required for amount-based roles and must be greater than 0', 400);
     }
 
     const roleData = {
@@ -128,16 +120,16 @@ export async function POST(request: NextRequest) {
 
     const newRole = await RoleDatabase.addRole(roleData);
 
-    return NextResponse.json({
+    return createSecureResponse({
       success: true,
       role: newRole
     });
 
   } catch (error) {
     console.error('Error adding role:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return createSecureErrorResponse('Internal server error', 500);
   }
 }
+
+// Apply rate limiting to the POST endpoint
+export const POST = withRateLimit(createRoleHandler, 'default');

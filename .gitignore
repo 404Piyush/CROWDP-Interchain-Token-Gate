@@ -139,3 +139,7 @@ temp_*.js
 check_*.py
 fix_*.py
 clear_*.py
+test_*.py
+
+# Message files (temporary)
+message*.txt

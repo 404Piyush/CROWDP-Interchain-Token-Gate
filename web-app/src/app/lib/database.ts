@@ -6,6 +6,8 @@ export interface Role {
   discordRoleId: string;
   amountThreshold?: number; // Optional - if not set, it's for all holders
   type: 'holder' | 'amount'; // 'holder' for all holders, 'amount' for specific threshold
+  description?: string; // Optional description for the role
+  color?: string; // Optional color for UI display
   createdAt: Date;
   updatedAt: Date;
 }
@@ -77,6 +79,11 @@ export class RoleDatabase {
 
   static async getRoleForBalance(balance: number): Promise<Role[]> {
     const collection = await this.getCollection();
+    
+    // Only return roles if balance > 0
+    if (balance <= 0) {
+      return [];
+    }
     
     // Get all holder roles (no amount threshold) and amount roles where balance meets threshold
     const roles = await collection.find({

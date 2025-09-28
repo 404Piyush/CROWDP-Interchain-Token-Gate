@@ -11,11 +11,13 @@
   "dependencies": {
     "@cosmjs/proto-signing": "^0.36.0",
     "@cosmjs/stargate": "^0.36.0",
+    "@keplr-wallet/cosmos": "^0.12.276",
     "@keplr-wallet/types": "^0.12.275",
     "autoprefixer": "^10.4.21",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.2",
+    "framer-motion": "^12.23.22",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.20.0",
     "mongoose": "^8.18.2",

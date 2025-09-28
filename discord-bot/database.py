@@ -38,7 +38,7 @@ class RoleDatabase:
             self.client.close()
             logger.info("Disconnected from MongoDB")
     
-    async def add_role(self, name: str, discord_role_id: str, amount_threshold: Optional[int] = None, 
+    async def add_role(self, name: str, discord_role_id: str, amount_threshold: Optional[float] = None, 
                       role_type: str = 'holder', created_by: str = None) -> Dict[str, Any]:
         """Add a new role to the database"""
         try:
@@ -99,6 +99,11 @@ class RoleDatabase:
     async def get_roles_for_balance(self, balance: float) -> List[Dict[str, Any]]:
         """Get roles that a user qualifies for based on their balance"""
         try:
+            # Only return roles if balance > 0
+            if balance <= 0:
+                logger.info(f"Balance {balance} is 0 or negative, returning no roles")
+                return []
+            
             # Get all holder roles (no amount threshold) and amount roles where balance meets threshold
             query = {
                 '$or': [

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 const Navbar = () => {
   return (
@@ -9,10 +10,12 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center space-x-3">
-            <img 
+            <Image 
               src="/imgs/logo.png" 
               alt="CrowdPunk Logo" 
-              className="w-10 h-10 object-contain"
+              width={40}
+              height={40}
+              className="object-contain"
             />
             <span className="text-white font-bold text-xl tracking-wide font-druk">
               CROWDPUNK
@@ -22,8 +25,7 @@ const Navbar = () => {
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
             <a 
-              href="https://www.crowdpunk.love/" 
-              target="_blank"
+              href={process.env.NEXT_PUBLIC_CROWDPUNK_URL || "https://www.crowdpunk.love/"} 
               rel="noopener noreferrer"
               className="text-white/80 hover:text-white transition-colors duration-200 font-medium font-arkitech"
             >
@@ -35,7 +37,6 @@ const Navbar = () => {
               {/* Discord */}
               <a 
                 href="#" 
-                target="_blank"
                 rel="noopener noreferrer"
                 className="text-white/80 hover:text-white transition-colors duration-200"
               >
@@ -47,7 +48,6 @@ const Navbar = () => {
               {/* TikTok */}
               <a 
                 href="#" 
-                target="_blank"
                 rel="noopener noreferrer"
                 className="text-white/80 hover:text-white transition-colors duration-200"
               >
@@ -59,7 +59,6 @@ const Navbar = () => {
               {/* Instagram */}
               <a 
                 href="#" 
-                target="_blank"
                 rel="noopener noreferrer"
                 className="text-white/80 hover:text-white transition-colors duration-200"
               >
@@ -71,7 +70,6 @@ const Navbar = () => {
               {/* LinkedIn */}
               <a 
                 href="#" 
-                target="_blank"
                 rel="noopener noreferrer"
                 className="text-white/80 hover:text-white transition-colors duration-200"
               >
@@ -83,7 +81,6 @@ const Navbar = () => {
               {/* X (Twitter) */}
               <a 
                 href="#" 
-                target="_blank"
                 rel="noopener noreferrer"
                 className="text-white/80 hover:text-white transition-colors duration-200"
               >

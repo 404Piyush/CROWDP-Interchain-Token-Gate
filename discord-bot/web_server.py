@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
 import discord
 from discord.ext import commands
@@ -7,7 +7,7 @@ import os
 from dotenv import load_dotenv
 import logging
 import uvicorn
-from typing import Optional
+from typing import Optional, Annotated
 from pymongo import MongoClient
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -48,6 +48,22 @@ class DiscordBot(commands.Bot):
 # Initialize bot
 discord_bot = DiscordBot()
 
+# API Key authentication
+async def verify_api_key(x_api_key: Annotated[str, Header()] = None):
+    """Verify API key for protected endpoints"""
+    expected_api_key = os.getenv('DISCORD_BOT_API_KEY')
+    
+    if not expected_api_key:
+        raise HTTPException(status_code=500, detail="API key not configured on server")
+    
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="API key required")
+    
+    if x_api_key != expected_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    return True
+
 @app.on_event("startup")
 async def startup_event():
     """Start the Discord bot and MongoDB connection when FastAPI starts"""
@@ -74,7 +90,7 @@ async def startup_event():
     await asyncio.sleep(3)
 
 @app.post("/assign-test-role")
-async def assign_test_role(request: RoleAssignmentRequest):
+async def assign_test_role(request: RoleAssignmentRequest, _: bool = Depends(verify_api_key)):
     """Assign a test role to a user and remove it after 30 seconds"""
     try:
         if not bot_instance or not bot_instance.is_ready():

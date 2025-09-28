@@ -53,38 +53,39 @@ class RoleCommands(commands.Cog):
                 else:
                     emoji = "⭐"
                 
-                # Format role description based on type
+                # Format role information based on type
                 if role['type'] == 'holder':
-                    description = "Entry level trader with 1+ OSMO tokens"
-                    threshold_text = "1 OSMO"
+                    requirement = "🎯 **Requirement:** Hold $CROWDP tokens"
                 else:
                     threshold = role.get('amountThreshold', 0)
-                    if threshold >= 10:
-                        description = f"Elite member with {threshold}+ OSMO tokens"
-                    elif threshold >= 5:
-                        description = f"Experienced community member with {threshold}+ OSMO tokens"
+                    # Format threshold to remove unnecessary decimal places
+                    if threshold == int(threshold):
+                        threshold_str = str(int(threshold))
                     else:
-                        description = f"Entry level trader with {threshold}+ OSMO tokens"
-                    threshold_text = f"{threshold} OSMO"
+                        threshold_str = str(threshold)
+                    requirement = f"🎯 **Requirement:** {threshold_str}+ OSMO tokens"
                 
                 # Get Discord role mention if available
                 role_mention = ""
                 if role.get('discordRoleId'):
-                    role_mention = f" <@&{role['discordRoleId']}>"
+                    role_mention = f"<@&{role['discordRoleId']}> "
+                
+                # Create clean field value
+                field_value = f"{role_mention}\n{requirement}"
                 
                 embed.add_field(
-                    name=f"**{i+1}.** {emoji} {role['name']}{role_mention}",
-                    value=f"**{threshold_text}**\n{description}",
+                    name=f"**{i+1}.** {emoji} {role['name']}",
+                    value=field_value,
                     inline=False
                 )
             
             embed.add_field(
                 name="💡 How to Get Roles",
-                value="Connect your wallet at our web app and use the role testing button!",
+                value="Use </connect:1420405619516637245> to connect your wallet and gain roles!",
                 inline=False
             )
             
-            embed.set_footer(text="Visit our web app to test role assignments!")
+            embed.set_footer(text="Connect your wallet to unlock exclusive roles!")
             
             await interaction.followup.send(embed=embed)
                     
@@ -137,7 +138,7 @@ class RoleCommands(commands.Cog):
             role_data = await db.add_role(
                 name=discord_role.name,
                 discord_role_id=str(discord_role.id),
-                amount_threshold=int(amount) if amount is not None else None,
+                amount_threshold=float(amount) if amount is not None else None,
                 role_type=role_type,
                 created_by=created_by
             )
@@ -170,7 +171,7 @@ class RoleCommands(commands.Cog):
             else:
                 embed.add_field(
                     name="Type",
-                    value=f"💰 **Amount Role** - Requires minimum {int(amount)} OSMO",
+                    value=f"💰 **Amount Role** - Requires minimum {amount} OSMO",
                     inline=False
                 )
             
