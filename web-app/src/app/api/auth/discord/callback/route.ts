@@ -255,7 +255,7 @@ async function discordCallbackHandler(request: NextRequest) {
     }
 
     // Redirect back to home page with success alert
-    const redirectUrl = new URL('/', request.url);
+    const redirectUrl = new URL('/', baseUrl);
     redirectUrl.searchParams.set('alert', 'success');
     redirectUrl.searchParams.set('username', discordUser.username);
     redirectUrl.searchParams.set('wallet', walletAddress);
@@ -267,7 +267,7 @@ async function discordCallbackHandler(request: NextRequest) {
     
   } catch (error) {
     console.error('Discord OAuth error:', error);
-    const errorUrl = new URL('/', request.url);
+    const errorUrl = new URL('/', baseUrl);
     errorUrl.searchParams.set('alert', 'failed');
     errorUrl.searchParams.set('message', 'Failed to connect Discord account. Please try again.');
     return NextResponse.redirect(errorUrl);

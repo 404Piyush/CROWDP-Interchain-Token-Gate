@@ -94,7 +94,8 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
     try {
       // Generate Discord OAuth URL directly with wallet address
       const discordClientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
-      const redirectUri = encodeURIComponent(`${window.location.origin}/api/auth/discord/callback`);
+      const baseUrl = process.env.NEXT_PUBLIC_NEXTAUTH_URL || window.location.origin;
+      const redirectUri = encodeURIComponent(`${baseUrl}/api/auth/discord/callback`);
       const state = encodeURIComponent(JSON.stringify({ walletAddress: address }));
       
       const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${discordClientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify&state=${state}`;
@@ -166,28 +167,36 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
     }
   };
 
-  // Removed disconnectWallet function as it's no longer needed after removing the X button
+  const disconnectWallet = () => {
+    setIsConnected(false);
+    setAddress('');
+    setBalance(null);
+    setError('');
+  };
 
   if (!isConnected) {
     return (
-      <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-white/20 max-w-md mx-auto">
+      <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-white/20 max-w-4xl mx-auto">
         {/* Centered Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-4 pt-4">
           <Image 
             src="/imgs/logo.png" 
             alt="Logo" 
-            width={80}
-            height={80}
+            width={156}
+            height={156}
             className="mx-auto object-contain"
           />
         </div>
 
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4 font-druk">
-            Connect Your Wallet
+        <div className="text-center mb-6">
+          <h1 className="text-4xl font-bold text-black mb-4 font-druk mt-2">
+            $CROWDP Interchain Token Gate
           </h1>
-          <p className="text-white/80 text-lg leading-relaxed font-arkitech">
-            Connect your Keplr wallet to access the Crowdpunk ecosystem
+          <p className="text-black text-lg leading-relaxed font-poppins">
+            Connect your Keplr wallet and in the next step your Discord to get access to my exclusive token gated roles for apha and edge.
+          </p>
+          <p className="text-black text-sm leading-relaxed font-poppins mt-3">
+            This connection is secure, and you are allowing Crowdpunk read-only access of your wallet address and your $CROWDP token balance. You will not be asked to sign any transactions.
           </p>
         </div>
 
@@ -200,20 +209,20 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
         <button
           onClick={connectWallet}
           disabled={isLoading}
-          className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 text-lg shadow-lg shadow-teal-500/25 disabled:shadow-none font-arkitech"
+          className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-black font-bold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 text-lg shadow-lg shadow-teal-500/25 disabled:shadow-none font-button"
         >
           {isLoading ? 'Connecting...' : 'Connect Keplr Wallet'}
         </button>
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-black/60 font-arkitech">
-            Don&apos;t have Keplr?{' '}
+          <p className="text-sm text-black/60 font-poppins">
             <a 
-              href={process.env.NEXT_PUBLIC_KEPLR_WALLET_URL || "https://www.keplr.app/"} 
+              href="https://x.com/crowd_punk/status/1860058310365606359" 
+              target="_blank"
               rel="noopener noreferrer"
-              className="text-teal-600 hover:text-teal-700 underline font-arkitech"
+              className="text-teal-600 hover:text-teal-700 underline font-poppins"
             >
-              Download here
+              Read my Interchain Impact Rating (IIR) about Keplr
             </a>
           </p>
         </div>
@@ -222,43 +231,55 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
   }
 
   return (
-    <div className="relative bg-gradient-to-br from-teal-500/20 to-cyan-500/20 backdrop-blur-sm rounded-2xl p-8 border border-white/20 shadow-2xl">
-      {/* Header with Logo and Navigation */}
-      <div className="flex items-center justify-between mb-8">
-        <Image 
-          src="/imgs/logo.png" 
-          alt="Logo" 
-          width={48}
-          height={48}
-          className="object-contain"
-        />
-        
-        <div className="flex justify-center">
+    <div className="relative bg-gradient-to-br from-teal-500/20 to-cyan-500/20 backdrop-blur-sm rounded-2xl p-8 border border-white/20 shadow-2xl max-w-4xl mx-auto">
+      {/* Navigation Buttons - Top Right */}
+      <div className="absolute top-6 right-6 flex space-x-4">
           <button
-            className="px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 font-arkitech"
+            className="px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-teal-500 to-cyan-500 text-black shadow-lg shadow-teal-500/25 font-button"
           >
             Profile
           </button>
+          <button
+            onClick={disconnectWallet}
+            className="px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg shadow-red-500/25 font-button transition-all duration-300"
+          >
+            Disconnect
+          </button>
         </div>
-      </div>
 
-      <div>
+      {/* Centered Logo */}
+      <div className="text-center mb-4">
+        <Image 
+          src="/imgs/logo.png" 
+          alt="Logo" 
+          width={156}
+          height={156}
+          className="mx-auto object-contain"
+        />
+      </div>
+      
+    
+
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-white mb-2 font-druk">
+          <h2 className="text-3xl font-bold text-black mb-2 font-druk">
             Wallet Connected
           </h2>
-          <p className="text-white/80 text-lg font-arkitech">Welcome to Crowdpunk!</p>
+          <p className="text-black/80 text-lg font-poppins">
+            By linking your wallet address and discord account, you may obtain exclusive and rewarding roles based on your token holdings. You will also receive your $CROWDP, which you may earn by engaging with the crowd and foster our collective success.
+            <br />
+            <strong>I am here for, and because of you! I am nothing without you. I love you!</strong>
+          </p>
         </div>
 
         <div className="space-y-4 mb-8">
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <h3 className="text-sm font-semibold text-white/70 mb-3 uppercase tracking-wide font-druk">Address</h3>
-            <p className="text-white font-mono text-sm break-all bg-black/20 p-3 rounded-lg font-arkitech">{address}</p>
+            <h3 className="text-sm font-semibold text-black/70 mb-3 uppercase tracking-wide font-druk">Address</h3>
+            <p className="text-black font-mono text-sm break-all bg-black/20 p-3 rounded-lg font-poppins">{address}</p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <h3 className="text-sm font-semibold text-white/70 mb-3 uppercase tracking-wide font-druk">OSMO Balance</h3>
-            <p className="text-white text-2xl font-bold font-arkitech">{balance !== null ? balance.toFixed(2) : 'Loading...'} <span className="text-lg text-white/70 font-arkitech">OSMO</span></p>
+            <h3 className="text-sm font-semibold text-black/70 mb-3 uppercase tracking-wide font-druk">OSMO Balance</h3>
+            <p className="text-black text-2xl font-bold font-poppins">{balance !== null ? balance.toFixed(2) : 'Loading...'} <span className="text-lg text-black/70 font-poppins">OSMO</span></p>
           </div>
         </div>
 
@@ -266,24 +287,11 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
           <button
             onClick={handleDiscordConnect}
             disabled={isConnectingDiscord}
-            className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg shadow-indigo-500/25 font-arkitech"
+            className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-black font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg shadow-indigo-500/25 font-button"
           >
             {isConnectingDiscord ? 'Connecting...' : 'Connect Discord Account'}
           </button>
         </div>
-
-        {/* Quick Actions */}
-        <div className="mt-8 p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-          <h3 className="text-lg font-bold text-white mb-4 font-druk">Discord Commands</h3>
-          <div className="space-y-3 text-sm text-white/80">
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-teal-400 rounded-full"></div>
-              <code className="bg-black/30 px-3 py-2 rounded-lg font-mono text-teal-300 font-arkitech">/rolegoals</code>
-              <span className="font-arkitech">- View all role requirements</span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

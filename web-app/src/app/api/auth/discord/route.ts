@@ -22,7 +22,7 @@ async function discordAuthHandler(request: NextRequest) {
     const redirectUri = encodeURIComponent(`${baseUrl}/api/auth/discord/callback`);
     const state = encodeURIComponent(JSON.stringify({ walletAddress }));
     
-    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${discordClientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify&state=${state}`;
+    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${discordClientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify+guilds&state=${state}`;
 
     return createSecureResponse({
       success: true,

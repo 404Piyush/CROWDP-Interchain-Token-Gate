@@ -245,7 +245,7 @@ const AlertModal: React.FC<AlertModalProps> = ({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className={`relative bg-white/95 backdrop-blur-xl rounded-3xl p-8 max-w-md w-full mx-4 border-2 ${
+            className={`relative bg-white/95 backdrop-blur-xl rounded-3xl p-8 max-w-2xl w-full mx-4 border-2 ${
               type === 'success' 
                 ? 'bg-gradient-to-br from-pink-50 via-rose-50 to-pink-100 border-pink-200/50' 
                 : 'bg-gradient-to-br from-white via-red-50 to-rose-50 border-red-200/50'
@@ -304,7 +304,7 @@ const AlertModal: React.FC<AlertModalProps> = ({
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.6, ease: "easeOut" }}
-              className={`text-3xl font-bold mb-4 ${
+              className={`text-3xl font-bold mb-4 text-center ${
                 type === 'success' 
                   ? 'text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-rose-600' 
                   : 'text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-rose-600'
@@ -331,39 +331,43 @@ const AlertModal: React.FC<AlertModalProps> = ({
                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ delay: 0.5, duration: 0.6, ease: "easeOut" }}
-                className="bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200/50 rounded-xl p-6 mb-6 text-left space-y-3"
+                className="bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200/50 rounded-xl p-6 mb-6 text-left"
               >
                 <div className="text-center mb-4">
-                  <p className="text-lg text-gray-700 font-medium">🎉 Discord account successfully connected!</p>
+                  <p className="text-base text-gray-700 font-medium leading-tight">
+                    You can now go back to the Crowdpunk Discord Server and see all your new roles and channels. No further action needed.
+                    <br /><br />
+                    <strong className="font-druk text-lg">CROWDPUNK</strong> - Own the KOL you follow!
+                  </p>
                 </div>
                 
-                {details.discordUsername && (
-                  <p className="text-sm text-gray-700 flex items-center">
-                    <span className="w-2 h-2 bg-pink-500 rounded-full mr-3"></span>
-                    <strong className="text-gray-800">Username:</strong> 
-                    <span className="ml-2 text-gray-600">{details.discordUsername}</span>
-                  </p>
-                )}
-                
-                {details.walletAddress && (
-                  <p className="text-sm text-gray-700 flex items-center">
-                    <span className="w-2 h-2 bg-teal-500 rounded-full mr-3"></span>
-                    <strong className="text-gray-800">Wallet:</strong> 
-                    <span className="ml-2 font-mono text-xs text-gray-600">
-                      {details.walletAddress.slice(0, 8)}...{details.walletAddress.slice(-6)}
-                    </span>
-                  </p>
-                )}
-                
-                {details.assignedRoles && details.assignedRoles.length > 0 && (
-                  <p className="text-sm text-gray-700 flex items-start">
-                    <span className="w-2 h-2 bg-rose-500 rounded-full mr-3 mt-1.5"></span>
-                    <span>
+                <div className="space-y-3 text-sm text-gray-700">
+                  {details.discordUsername && (
+                    <div className="flex items-center">
+                      <span className="w-2 h-2 bg-pink-500 rounded-full mr-2"></span>
+                      <strong className="text-gray-800">Username:</strong> 
+                      <span className="ml-1 text-gray-600">{details.discordUsername}</span>
+                    </div>
+                  )}
+                  
+                  {details.walletAddress && (
+                    <div className="flex items-center">
+                      <span className="w-2 h-2 bg-teal-500 rounded-full mr-2"></span>
+                      <strong className="text-gray-800">Wallet:</strong> 
+                      <span className="ml-1 font-mono text-xs text-gray-600">
+                        {details.walletAddress.slice(0, 8)}...{details.walletAddress.slice(-6)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {details.assignedRoles && details.assignedRoles.length > 0 && (
+                    <div className="flex items-center">
+                      <span className="w-2 h-2 bg-rose-500 rounded-full mr-2"></span>
                       <strong className="text-gray-800">Roles assigned:</strong> 
-                      <span className="ml-2 text-gray-600">{details.assignedRoles.join(', ')}</span>
-                    </span>
-                  </p>
-                )}
+                      <span className="ml-1 text-gray-600">{details.assignedRoles.join(', ')}</span>
+                    </div>
+                  )}
+                </div>
               </motion.div>
             )}
 
@@ -379,7 +383,40 @@ const AlertModal: React.FC<AlertModalProps> = ({
               </motion.p>
             )}
 
-          
+            {/* Action Buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6, duration: 0.6, ease: "easeOut" }}
+              className="flex flex-col sm:flex-row gap-3 justify-center"
+            >
+              {type === 'success' && (
+                <motion.a
+                  href="https://discord.gg/mjYC4a8uwe"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-all duration-300 transform hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40 text-center font-button"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  🎮 Go back to CROWDPUNKS's Discord
+                </motion.a>
+              )}
+              
+              <motion.button
+                onClick={onClose}
+                className={`px-8 py-4 font-semibold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl text-center font-button ${
+                  type === 'success' 
+                    ? 'bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 shadow-gray-500/25 hover:shadow-gray-500/40' 
+                    : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-red-500/25 hover:shadow-red-500/40'
+                }`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {type === 'success' ? 'Close' : 'Try Again'}
+              </motion.button>
+            </motion.div>
+
           </motion.div>
         </motion.div>
       )}

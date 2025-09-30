@@ -10,7 +10,6 @@ module.exports = {
       fontFamily: {
         'poppins': ['Poppins', 'system-ui', 'sans-serif'],
         'druk': ['DrukWideBold', 'system-ui', 'sans-serif'],
-        'arkitech': ['Arkitech', 'system-ui', 'sans-serif'],
       },
       colors: {
         background: "var(--background)",

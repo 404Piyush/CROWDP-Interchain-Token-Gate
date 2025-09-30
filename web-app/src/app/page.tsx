@@ -92,7 +92,7 @@ export default function Home() {
         
         {/* Main Content */}
         <main className="flex-1 flex items-center justify-center px-4 py-12">
-          <div className="w-full max-w-4xl">
+          <div className="w-full max-w-7xl">
             <WalletConnection
               onWalletConnect={handleWalletConnect}
             />
