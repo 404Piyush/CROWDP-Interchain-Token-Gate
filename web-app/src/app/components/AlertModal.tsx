@@ -391,30 +391,19 @@ const AlertModal: React.FC<AlertModalProps> = ({
               className="flex flex-col sm:flex-row gap-3 justify-center"
             >
               {type === 'success' && (
-                <motion.a
-                  href="https://discord.gg/mjYC4a8uwe"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-all duration-300 transform hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40 text-center font-button"
-                  whileHover={{ scale: 1.05 }}
+                <motion.button
+                  onClick={() => window.open('https://discord.gg/mjYC4a8uwe', '_blank', 'noopener,noreferrer')}
+                  className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-700 hover:to-purple-800 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-600/50 hover:brightness-110 text-center font-button cursor-pointer"
+                  whileHover={{ 
+                    scale: 1.05,
+                    boxShadow: "0 25px 50px -12px rgba(79, 70, 229, 0.5)",
+                    transition: { duration: 0.2 }
+                  }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  🎮 Go back to CROWDPUNKS's Discord
-                </motion.a>
+                  🎮 Go back to CROWDPUNKS&apos;s Discord
+                </motion.button>
               )}
-              
-              <motion.button
-                onClick={onClose}
-                className={`px-8 py-4 font-semibold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl text-center font-button ${
-                  type === 'success' 
-                    ? 'bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 shadow-gray-500/25 hover:shadow-gray-500/40' 
-                    : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-red-500/25 hover:shadow-red-500/40'
-                }`}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                {type === 'success' ? 'Close' : 'Try Again'}
-              </motion.button>
             </motion.div>
 
           </motion.div>

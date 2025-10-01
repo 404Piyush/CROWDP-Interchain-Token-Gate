@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '../../../../lib/mongodb';
 import { withRateLimit } from '../../../../lib/rate-limiter';
 import { createSecureErrorResponse } from '@/lib/security-headers';
+import { validateAndConsumeSession } from '../../../../lib/session-manager';
 
 async function discordCallbackHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -16,21 +17,35 @@ async function discordCallbackHandler(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
     
-    // Parse wallet address directly from state
-    let walletAddress: string;
-    try {
-      const stateData = JSON.parse(decodeURIComponent(state));
-      walletAddress = stateData.walletAddress;
-      
-      if (!walletAddress) {
-        throw new Error('Wallet address not found in state');
-      }
-    } catch (error) {
-      console.error('Failed to parse state:', error);
+    // Verify state and get associated session
+    const stateDoc = await db.collection('oauth_states').findOne({
+      state,
+      used: false,
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!stateDoc) {
+      console.error('Invalid or expired OAuth state');
       return NextResponse.redirect(`${baseUrl}?error=invalid_state`);
     }
+
+    // Mark state as used
+    await db.collection('oauth_states').updateOne(
+      { _id: stateDoc._id },
+      { $set: { used: true, usedAt: new Date() } }
+    );
+
+    // Validate and consume the session token (one-time use)
+    const sessionResult = await validateAndConsumeSession(stateDoc.sessionId);
+    if (!sessionResult.success || !sessionResult.walletAddress) {
+      console.error('Invalid session during OAuth callback');
+      return NextResponse.redirect(`${baseUrl}?error=invalid_session`);
+    }
+
+    const walletAddress = sessionResult.walletAddress;
+    const codeVerifier = stateDoc.codeVerifier;
     
-    // Exchange code for token
+    // Exchange code for token with PKCE
     const discordApiUrl = process.env.DISCORD_API_BASE_URL || 'https://discord.com/api';
     const tokenResponse = await fetch(`${discordApiUrl}/oauth2/token`, {
       method: 'POST',
@@ -43,6 +58,7 @@ async function discordCallbackHandler(request: NextRequest) {
         grant_type: 'authorization_code',
         code,
         redirect_uri: `${baseUrl}/api/auth/discord/callback`,
+        code_verifier: codeVerifier
       }),
     });
 

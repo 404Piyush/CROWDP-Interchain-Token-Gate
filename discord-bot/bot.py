@@ -31,7 +31,7 @@ class VerifierBot(commands.Bot):
         )
         
         # Initialize balance monitor
-        self.balance_monitor = BalanceMonitor(bot_instance=self)
+        self.balance_monitor = BalanceMonitor()
         
     async def setup_hook(self):
         """Called when the bot is starting up"""

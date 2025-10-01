@@ -92,16 +92,42 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
     setError('');
 
     try {
-      // Generate Discord OAuth URL directly with wallet address
-      const discordClientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
-      const baseUrl = process.env.NEXT_PUBLIC_NEXTAUTH_URL || window.location.origin;
-      const redirectUri = encodeURIComponent(`${baseUrl}/api/auth/discord/callback`);
-      const state = encodeURIComponent(JSON.stringify({ walletAddress: address }));
-      
-      const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${discordClientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify&state=${state}`;
+      // Step 1: Create secure session with wallet address
+      const sessionResponse = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress: address
+        }),
+      });
 
-      // Redirect to Discord OAuth
-      window.location.href = discordAuthUrl;
+      if (!sessionResponse.ok) {
+        throw new Error('Failed to create secure session');
+      }
+
+      const sessionData = await sessionResponse.json();
+      
+      // Step 2: Get Discord OAuth URL using the secure session
+      const discordResponse = await fetch('/api/auth/discord', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: sessionData.sessionId
+        }),
+      });
+
+      if (!discordResponse.ok) {
+        throw new Error('Failed to generate Discord OAuth URL');
+      }
+
+      const discordData = await discordResponse.json();
+      
+      // Step 3: Redirect to Discord OAuth (NO wallet address in URL)
+      window.location.href = discordData.discordAuthUrl;
     } catch (err) {
       console.error('Discord connection failed:', err);
       setError(`Failed to connect Discord: ${err instanceof Error ? err.message : 'Please try again.'}`);

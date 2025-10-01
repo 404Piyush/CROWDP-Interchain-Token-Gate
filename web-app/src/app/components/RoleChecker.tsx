@@ -26,7 +26,7 @@ const RoleChecker: React.FC<RoleCheckerProps> = ({ userAddress, balance }) => {
 
   const fetchRoleInfo = useCallback(async () => {
     try {
-      const response = await fetch(`/api/user/role?action=check&walletAddress=${userAddress}&osmoBalance=${balance}`);
+      const response = await fetch(`/api/user/role?action=check&walletAddress=${userAddress}`);
       const data = await response.json();
       
       if (data.success) {
@@ -42,7 +42,7 @@ const RoleChecker: React.FC<RoleCheckerProps> = ({ userAddress, balance }) => {
     } catch (error) {
       console.error('Error fetching role info:', error);
     }
-  }, [userAddress, balance]);
+  }, [userAddress]);
 
   useEffect(() => {
     fetchRoleInfo();
@@ -59,8 +59,7 @@ const RoleChecker: React.FC<RoleCheckerProps> = ({ userAddress, balance }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          walletAddress: userAddress,
-          osmoBalance: balance
+          walletAddress: userAddress
         }),
       });
 
