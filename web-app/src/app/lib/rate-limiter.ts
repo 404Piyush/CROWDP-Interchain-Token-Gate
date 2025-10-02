@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { redisRateLimit, isRedisAvailable } from './redis-client';
 
 interface RateLimitEntry {
   count: number;
   resetTime: number;
 }
 
-// In-memory store for rate limiting (in production, use Redis or similar)
+// In-memory store for rate limiting (fallback when Redis is unavailable)
 const rateLimitStore = new Map<string, RateLimitEntry>();
 
 // Rate limit configurations
@@ -50,7 +51,7 @@ function getClientId(request: NextRequest): string {
 }
 
 /**
- * Clean up expired entries from rate limit store
+ * Clean up expired entries from rate limit store (in-memory fallback)
  */
 function cleanupExpiredEntries(): void {
   const now = Date.now();
@@ -62,57 +63,98 @@ function cleanupExpiredEntries(): void {
 }
 
 /**
- * Rate limiting middleware
+ * In-memory rate limiting (fallback)
+ */
+function inMemoryRateLimit(clientId: string, config: { windowMs: number; maxRequests: number }): NextResponse | null {
+  // Clean up expired entries periodically
+  if (Math.random() < 0.01) { // 1% chance to cleanup
+    cleanupExpiredEntries();
+  }
+
+  const now = Date.now();
+  let entry = rateLimitStore.get(clientId);
+
+  if (!entry || now > entry.resetTime) {
+    // Create new entry or reset expired entry
+    entry = {
+      count: 1,
+      resetTime: now + config.windowMs
+    };
+    rateLimitStore.set(clientId, entry);
+    return null; // Allow request
+  }
+
+  if (entry.count >= config.maxRequests) {
+    // Rate limit exceeded
+    const resetTimeSeconds = Math.ceil((entry.resetTime - now) / 1000);
+    
+    return NextResponse.json(
+      {
+        error: 'Rate limit exceeded',
+        message: `Too many requests. Try again in ${resetTimeSeconds} seconds.`,
+        retryAfter: resetTimeSeconds
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': resetTimeSeconds.toString(),
+          'X-RateLimit-Limit': config.maxRequests.toString(),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': entry.resetTime.toString()
+        }
+      }
+    );
+  }
+
+  // Increment counter
+  entry.count++;
+  rateLimitStore.set(clientId, entry);
+
+  return null; // Allow request
+}
+
+/**
+ * Rate limiting middleware with Redis support and in-memory fallback
  */
 export function rateLimit(config: { windowMs: number; maxRequests: number }) {
-  return (request: NextRequest): NextResponse | null => {
-    // Clean up expired entries periodically
-    if (Math.random() < 0.01) { // 1% chance to cleanup
-      cleanupExpiredEntries();
-    }
-
+  return async (request: NextRequest): Promise<NextResponse | null> => {
     const clientId = getClientId(request);
-    const now = Date.now();
-
-    let entry = rateLimitStore.get(clientId);
-
-    if (!entry || now > entry.resetTime) {
-      // Create new entry or reset expired entry
-      entry = {
-        count: 1,
-        resetTime: now + config.windowMs
-      };
-      rateLimitStore.set(clientId, entry);
-      return null; // Allow request
-    }
-
-    if (entry.count >= config.maxRequests) {
-      // Rate limit exceeded
-      const resetTimeSeconds = Math.ceil((entry.resetTime - now) / 1000);
-      
-      return NextResponse.json(
-        {
-          error: 'Rate limit exceeded',
-          message: `Too many requests. Try again in ${resetTimeSeconds} seconds.`,
-          retryAfter: resetTimeSeconds
-        },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': resetTimeSeconds.toString(),
-            'X-RateLimit-Limit': config.maxRequests.toString(),
-            'X-RateLimit-Remaining': '0',
-            'X-RateLimit-Reset': entry.resetTime.toString()
-          }
+    
+    try {
+      // Try Redis-based rate limiting first
+      if (await isRedisAvailable()) {
+        const rateLimitKey = `rate_limit:${clientId}`;
+        const result = await redisRateLimit(rateLimitKey, config.windowMs, config.maxRequests);
+        
+        if (!result.allowed) {
+          const resetTimeSeconds = Math.ceil((result.resetTime - Date.now()) / 1000);
+          
+          return NextResponse.json(
+            {
+              error: 'Rate limit exceeded',
+              message: `Too many requests. Try again in ${resetTimeSeconds} seconds.`,
+              retryAfter: resetTimeSeconds
+            },
+            {
+              status: 429,
+              headers: {
+                'Retry-After': resetTimeSeconds.toString(),
+                'X-RateLimit-Limit': config.maxRequests.toString(),
+                'X-RateLimit-Remaining': result.remaining.toString(),
+                'X-RateLimit-Reset': result.resetTime.toString()
+              }
+            }
+          );
         }
-      );
+        
+        return null; // Allow request
+      }
+    } catch (error) {
+      console.warn('Redis rate limiting failed, falling back to in-memory:', error);
     }
-
-    // Increment counter
-    entry.count++;
-    rateLimitStore.set(clientId, entry);
-
-    return null; // Allow request
+    
+    // Fall back to in-memory rate limiting
+    return inMemoryRateLimit(clientId, config);
   };
 }
 
@@ -124,7 +166,7 @@ export function withRateLimit(
   limitType: keyof typeof RATE_LIMITS = 'default'
 ) {
   return async (request: NextRequest): Promise<NextResponse> => {
-    const rateLimitResponse = rateLimit(RATE_LIMITS[limitType])(request);
+    const rateLimitResponse = await rateLimit(RATE_LIMITS[limitType])(request);
     
     if (rateLimitResponse) {
       return rateLimitResponse;
@@ -137,14 +179,48 @@ export function withRateLimit(
 /**
  * Rate limit by IP and optional user identifier
  */
-export function rateLimitByIpAndUser(
+export async function rateLimitByIpAndUser(
   request: NextRequest,
   config: { windowMs: number; maxRequests: number },
   userId?: string
-): NextResponse | null {
+): Promise<NextResponse | null> {
   const baseClientId = getClientId(request);
   const clientId = userId ? `${baseClientId}:user:${userId}` : baseClientId;
   
+  try {
+    // Try Redis-based rate limiting first
+    if (await isRedisAvailable()) {
+      const rateLimitKey = `rate_limit:${clientId}`;
+      const result = await redisRateLimit(rateLimitKey, config.windowMs, config.maxRequests);
+      
+      if (!result.allowed) {
+        const resetTimeSeconds = Math.ceil((result.resetTime - Date.now()) / 1000);
+        
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded',
+            message: `Too many requests. Try again in ${resetTimeSeconds} seconds.`,
+            retryAfter: resetTimeSeconds
+          },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': resetTimeSeconds.toString(),
+              'X-RateLimit-Limit': config.maxRequests.toString(),
+              'X-RateLimit-Remaining': result.remaining.toString(),
+              'X-RateLimit-Reset': result.resetTime.toString()
+            }
+          }
+        );
+      }
+      
+      return null; // Allow request
+    }
+  } catch (error) {
+    console.warn('Redis rate limiting failed, falling back to in-memory:', error);
+  }
+  
+  // Fall back to in-memory rate limiting
   const now = Date.now();
   let entry = rateLimitStore.get(clientId);
 

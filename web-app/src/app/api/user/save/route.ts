@@ -3,17 +3,25 @@ import { connectToDatabase } from '../../../lib/mongodb';
 import { calculateUserRole } from '../../../lib/roles';
 import { withRateLimit } from '../../../lib/rate-limiter';
 import { createSecureResponse, createSecureErrorResponse } from '@/lib/security-headers';
+import { validateRequestBody, saveUserRequestSchema, sanitizeWalletAddress } from '../../../lib/validation';
 
 async function saveUserHandler(request: NextRequest) {
   try {
-    const { walletAddress } = await request.json();
+    const rawBody = await request.json();
     
-    if (!walletAddress) {
-      return createSecureErrorResponse('Wallet address is required', 400);
+    // Validate and sanitize input
+    let validatedData;
+    try {
+      validatedData = validateRequestBody(saveUserRequestSchema, rawBody);
+    } catch (error) {
+      return createSecureErrorResponse(`Validation error: ${error instanceof Error ? error.message : 'Invalid input'}`, 400);
     }
 
-    // Validate wallet address format (Osmosis bech32)
-    if (!walletAddress.startsWith('osmo') || walletAddress.length !== 43) {
+    const { walletAddress } = validatedData;
+    const sanitizedWalletAddress = sanitizeWalletAddress(walletAddress);
+
+    // Additional validation for Osmosis wallet address format
+    if (!sanitizedWalletAddress.startsWith('osmo') || sanitizedWalletAddress.length !== 43) {
       return createSecureErrorResponse('Invalid Osmosis wallet address format', 400);
     }
 
@@ -21,7 +29,7 @@ async function saveUserHandler(request: NextRequest) {
     let osmoBalance = 0;
     try {
       const cosmosRestUrl = process.env.COSMOS_REST_URL || 'https://lcd.testnet.osmosis.zone';
-    const response = await fetch(`${cosmosRestUrl}/cosmos/bank/v1beta1/balances/${walletAddress}`);
+      const response = await fetch(`${cosmosRestUrl}/cosmos/bank/v1beta1/balances/${sanitizedWalletAddress}`);
       if (!response.ok) {
         throw new Error('Failed to fetch balance from blockchain');
       }
@@ -42,12 +50,12 @@ async function saveUserHandler(request: NextRequest) {
     const roleInfo = await calculateUserRole(osmoBalance);
     
     // Check if user already exists
-    const existingUser = await db.collection('users').findOne({ walletAddress });
+    const existingUser = await db.collection('users').findOne({ walletAddress: sanitizedWalletAddress });
     
     if (existingUser) {
       // Update existing user's balance and roles
       await db.collection('users').updateOne(
-        { walletAddress },
+        { walletAddress: sanitizedWalletAddress },
         {
           $set: {
             osmoBalance,
@@ -87,7 +95,7 @@ async function saveUserHandler(request: NextRequest) {
     } else {
       // Create new user
       await db.collection('users').insertOne({
-        walletAddress,
+        walletAddress: sanitizedWalletAddress,
         osmoBalance,
         currentRole: roleInfo.currentRole,
         eligibleRoles: roleInfo.eligibleRoles,
@@ -110,7 +118,7 @@ async function saveUserHandler(request: NextRequest) {
       success: true,
       message: 'User saved successfully',
       user: {
-        walletAddress,
+        walletAddress: sanitizedWalletAddress,
         osmoBalance,
         ...roleInfo
       }

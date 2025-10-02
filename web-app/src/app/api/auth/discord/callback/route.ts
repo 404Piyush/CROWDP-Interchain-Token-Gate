@@ -3,6 +3,7 @@ import { connectToDatabase } from '../../../../lib/mongodb';
 import { withRateLimit } from '../../../../lib/rate-limiter';
 import { createSecureErrorResponse } from '@/lib/security-headers';
 import { validateAndConsumeSession } from '../../../../lib/session-manager';
+import { createUserSession } from '../../../../lib/auth';
 
 async function discordCallbackHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -270,6 +271,9 @@ async function discordCallbackHandler(request: NextRequest) {
       }
     }
 
+    // Create secure user session after successful OAuth
+    const { response } = await createUserSession(walletAddress, discordUser.id);
+    
     // Redirect back to home page with success alert
     const redirectUrl = new URL('/', baseUrl);
     redirectUrl.searchParams.set('alert', 'success');
@@ -279,7 +283,16 @@ async function discordCallbackHandler(request: NextRequest) {
       redirectUrl.searchParams.set('roles', roleInfo.eligibleRoles.join(','));
     }
     
-    return NextResponse.redirect(redirectUrl);
+    // Create redirect response with secure session cookie
+    const redirectResponse = NextResponse.redirect(redirectUrl);
+    
+    // Copy the secure cookie from the session response to the redirect response
+    const sessionCookie = response.cookies.get('session-token');
+    if (sessionCookie) {
+      redirectResponse.cookies.set(sessionCookie);
+    }
+    
+    return redirectResponse;
     
   } catch (error) {
     console.error('Discord OAuth error:', error);

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { withRateLimit } from '../../lib/rate-limiter';
 import { createSecureResponse, createSecureErrorResponse } from '@/lib/security-headers';
+import { validateRequestBody, testRoleRequestSchema, sanitizeWalletAddress } from '../../lib/validation';
 
 async function testRoleHandler(request: NextRequest) {
   try {
@@ -12,11 +13,18 @@ async function testRoleHandler(request: NextRequest) {
       return createSecureErrorResponse(authResult.error || 'Unauthorized - Admin access required', 401);
     }
 
-    const { walletAddress, roleId } = await request.json();
-
-    if (!walletAddress || !roleId) {
-      return createSecureResponse({ message: 'Wallet address and role ID are required' }, 400);
+    const rawBody = await request.json();
+    
+    // Validate and sanitize input
+    let validatedData;
+    try {
+      validatedData = validateRequestBody(testRoleRequestSchema, rawBody);
+    } catch (error) {
+      return createSecureErrorResponse(`Validation error: ${error instanceof Error ? error.message : 'Invalid input'}`, 400);
     }
+
+    const { walletAddress, roleId } = validatedData;
+    const sanitizedWalletAddress = sanitizeWalletAddress(walletAddress);
 
     // Use environment variable for Discord bot URL
     const discordBotUrl = process.env.DISCORD_BOT_URL || 'http://localhost:8000';
@@ -29,7 +37,7 @@ async function testRoleHandler(request: NextRequest) {
         'x-api-key': process.env.DISCORD_BOT_API_KEY || '', // Add API key for bot authentication
       },
       body: JSON.stringify({
-        wallet_address: walletAddress,
+        wallet_address: sanitizedWalletAddress,
         role_id: roleId
       }),
     });

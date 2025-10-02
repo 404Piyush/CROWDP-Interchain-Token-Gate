@@ -5,7 +5,55 @@ if (!process.env.MONGODB_URI) {
 }
 
 const uri: string = process.env.MONGODB_URI;
-const options = {};
+
+// Validate MongoDB URI contains authentication credentials
+function validateMongoUri(uri: string): void {
+  try {
+    const url = new URL(uri);
+    
+    // Check if URI contains authentication credentials
+    if (!url.username || !url.password) {
+      console.warn('⚠️  MongoDB URI does not contain authentication credentials. This is insecure for production.');
+      
+      // In production, require authentication (but allow build process to continue)
+      if (process.env.NODE_ENV === 'production' && process.env.VERCEL !== '1' && !process.env.NEXT_PHASE) {
+        throw new Error('MongoDB authentication is required in production environment');
+      }
+    }
+    
+    // Validate protocol
+    if (!['mongodb:', 'mongodb+srv:'].includes(url.protocol)) {
+      throw new Error('Invalid MongoDB URI protocol. Must be mongodb:// or mongodb+srv://');
+    }
+    
+    // Validate hostname
+    if (!url.hostname) {
+      throw new Error('MongoDB URI must contain a valid hostname');
+    }
+    
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error('Invalid MongoDB URI format');
+    }
+    throw error;
+  }
+}
+
+// Validate the URI before proceeding
+validateMongoUri(uri);
+
+const options = {
+  // Security options
+  maxPoolSize: 10,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  family: 4, // Use IPv4, skip trying IPv6
+  // Enable SSL/TLS for production
+  ...(process.env.NODE_ENV === 'production' && {
+    tls: true,
+    tlsAllowInvalidCertificates: false,
+  }),
+};
 
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;

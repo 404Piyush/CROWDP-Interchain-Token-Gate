@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from './mongodb';
 
 export interface AuthResult {
@@ -17,23 +17,26 @@ export interface AuthResult {
  * Verify API key for admin operations
  */
 export async function verifyApiKey(request: NextRequest): Promise<AuthResult> {
-  const apiKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
-  
-  if (!apiKey) {
+  const apiKey = request.headers.get('x-api-key');
+  const expectedApiKey = process.env.ADMIN_API_KEY;
+
+  if (!apiKey || !expectedApiKey) {
     return { success: false, error: 'API key required' };
   }
 
-  // Check against environment variable for admin API key
-  const adminApiKey = process.env.ADMIN_API_KEY;
-  if (!adminApiKey) {
-    return { success: false, error: 'Admin API key not configured' };
-  }
-
-  if (apiKey !== adminApiKey) {
+  if (apiKey !== expectedApiKey) {
     return { success: false, error: 'Invalid API key' };
   }
 
-  return { success: true };
+  return {
+    success: true,
+    user: {
+      walletAddress: 'admin',
+      discordId: 'admin',
+      discordUsername: 'Admin User',
+      isAdmin: true
+    }
+  };
 }
 
 /**
@@ -105,9 +108,12 @@ export async function verifyAdminAccess(request: NextRequest): Promise<AuthResul
 }
 
 /**
- * Create a user session after successful authentication
+ * Create a user session after successful authentication with secure cookie settings
  */
-export async function createUserSession(walletAddress: string, discordId: string): Promise<string> {
+export async function createUserSession(walletAddress: string, discordId: string): Promise<{
+  sessionToken: string;
+  response: NextResponse;
+}> {
   const { db } = await connectToDatabase();
   
   const sessionToken = generateSecureToken();
@@ -122,7 +128,99 @@ export async function createUserSession(walletAddress: string, discordId: string
     active: true
   });
 
-  return sessionToken;
+  // Create response with secure cookie
+  const response = NextResponse.json({
+    success: true,
+    message: 'Session created successfully'
+  });
+
+  // Set secure session cookie
+  setSecureSessionCookie(response, sessionToken, expiresAt);
+
+  return { sessionToken, response };
+}
+
+/**
+ * Set secure session cookie with proper security attributes
+ */
+export function setSecureSessionCookie(response: NextResponse, sessionToken: string, expiresAt: Date): void {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Set secure cookie with all security attributes
+  response.cookies.set('session-token', sessionToken, {
+    httpOnly: true,           // Prevent XSS attacks
+    secure: isProduction,     // HTTPS only in production
+    sameSite: 'strict',       // CSRF protection
+    expires: expiresAt,       // Explicit expiration
+    path: '/',                // Available site-wide
+    priority: 'high'          // High priority cookie
+  });
+
+  // Set additional security headers for session endpoints
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  response.headers.set('Pragma', 'no-cache');
+  response.headers.set('Expires', '0');
+}
+
+/**
+ * Clear session cookie securely
+ */
+export function clearSessionCookie(response: NextResponse): void {
+  response.cookies.set('session-token', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    expires: new Date(0), // Expire immediately
+    path: '/',
+    priority: 'high'
+  });
+}
+
+/**
+ * Invalidate user session
+ */
+export async function invalidateUserSession(sessionToken: string): Promise<boolean> {
+  try {
+    const { db } = await connectToDatabase();
+    
+    const result = await db.collection('user_sessions').updateOne(
+      { sessionToken },
+      { 
+        $set: { 
+          active: false, 
+          invalidatedAt: new Date() 
+        } 
+      }
+    );
+
+    return result.modifiedCount > 0;
+  } catch (error) {
+    console.error('Session invalidation error:', error);
+    return false;
+  }
+}
+
+/**
+ * Clean up expired sessions (maintenance function)
+ */
+export async function cleanupExpiredSessions(): Promise<void> {
+  try {
+    const { db } = await connectToDatabase();
+    
+    // Remove expired sessions
+    await db.collection('user_sessions').deleteMany({
+      expiresAt: { $lt: new Date() }
+    });
+
+    // Remove inactive sessions older than 7 days
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    await db.collection('user_sessions').deleteMany({
+      active: false,
+      invalidatedAt: { $lt: sevenDaysAgo }
+    });
+  } catch (error) {
+    console.error('Session cleanup error:', error);
+  }
 }
 
 /**

@@ -2,19 +2,22 @@ import { NextRequest } from 'next/server';
 import { withRateLimit } from '@/app/lib/rate-limiter';
 import { createSecureResponse, createSecureErrorResponse } from '@/lib/security-headers';
 import { createWalletSession } from '@/app/lib/session-manager';
+import { validateRequestBody, sessionRequestSchema, sanitizeWalletAddress } from '@/app/lib/validation';
 
 async function createSessionHandler(request: NextRequest) {
   try {
-    const { walletAddress } = await request.json();
+    const rawBody = await request.json();
     
-    if (!walletAddress) {
-      return createSecureErrorResponse('Wallet address is required', 400);
+    // Validate and sanitize input
+    let validatedData;
+    try {
+      validatedData = validateRequestBody(sessionRequestSchema, rawBody);
+    } catch (error) {
+      return createSecureErrorResponse(`Validation error: ${error instanceof Error ? error.message : 'Invalid input'}`, 400);
     }
 
-    // Validate wallet address format
-    if (!walletAddress.startsWith('osmo') || walletAddress.length < 39) {
-      return createSecureErrorResponse('Invalid wallet address format', 400);
-    }
+    const { walletAddress } = validatedData;
+    const sanitizedWalletAddress = sanitizeWalletAddress(walletAddress);
 
     // Get client info for session tracking
     const ipAddress = request.headers.get('x-forwarded-for') || 
@@ -23,7 +26,7 @@ async function createSessionHandler(request: NextRequest) {
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
     // Create secure session directly with wallet address
-    const sessionId = await createWalletSession(walletAddress, ipAddress, userAgent);
+    const sessionId = await createWalletSession(sanitizedWalletAddress, ipAddress, userAgent);
 
     return createSecureResponse({
       success: true,

@@ -13,6 +13,7 @@
     "@cosmjs/stargate": "^0.36.0",
     "@keplr-wallet/cosmos": "^0.12.276",
     "@keplr-wallet/types": "^0.12.275",
+    "@types/redis": "^4.0.10",
     "autoprefixer": "^10.4.21",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
@@ -24,7 +25,9 @@
     "next": "15.5.4",
     "puppeteer": "^24.22.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "redis": "^5.8.2",
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

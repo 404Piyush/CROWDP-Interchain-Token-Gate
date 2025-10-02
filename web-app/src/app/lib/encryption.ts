@@ -1,46 +1,33 @@
-import crypto from 'crypto';
-
-const ALGORITHM = 'aes-256-gcm';
-const KEY_LENGTH = 32; // 256 bits
-const IV_LENGTH = 16; // 128 bits
-const TAG_LENGTH = 16; // 128 bits
+import * as crypto from 'crypto';
 
 /**
- * Get encryption key from environment variable
+ * Get or generate encryption key from environment
  */
-function getEncryptionKey(): Buffer {
+function getEncryptionKey(): string {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) {
     throw new Error('ENCRYPTION_KEY environment variable is required');
   }
-  
-  // If key is hex-encoded, decode it
-  if (key.length === 64) {
-    return Buffer.from(key, 'hex');
-  }
-  
-  // Otherwise, hash the key to get consistent 32-byte key
-  return crypto.createHash('sha256').update(key).digest();
+  return key;
 }
 
 /**
- * Encrypt sensitive data (like Discord tokens)
+ * Encrypt sensitive data (like Discord tokens) using AES-256-CBC
  */
 export function encrypt(text: string): string {
   try {
     const key = getEncryptionKey();
-    const iv = crypto.randomBytes(IV_LENGTH);
+    // Ensure key is 32 bytes for AES-256
+    const keyBuffer = Buffer.from(key.slice(0, 64), 'hex'); // Take first 64 hex chars = 32 bytes
+    const iv = crypto.randomBytes(16); // 16 bytes for AES-256-CBC
     
-    const cipher = crypto.createCipher(ALGORITHM, key);
-    cipher.setAAD(Buffer.from('discord-token', 'utf8'));
+    const cipher = crypto.createCipheriv('aes-256-cbc', keyBuffer, iv);
     
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     
-    const tag = cipher.getAuthTag();
-    
-    // Combine iv + tag + encrypted data
-    const combined = iv.toString('hex') + tag.toString('hex') + encrypted;
+    // Combine iv + encrypted data
+    const combined = iv.toString('hex') + encrypted;
     return combined;
   } catch (error) {
     console.error('Encryption error:', error);
@@ -49,19 +36,20 @@ export function encrypt(text: string): string {
 }
 
 /**
- * Decrypt sensitive data (like Discord tokens)
+ * Decrypt sensitive data (like Discord tokens) using AES-256-CBC
  */
 export function decrypt(encryptedData: string): string {
   try {
     const key = getEncryptionKey();
+    // Ensure key is 32 bytes for AES-256
+    const keyBuffer = Buffer.from(key.slice(0, 64), 'hex'); // Take first 64 hex chars = 32 bytes
     
-    // Extract tag and encrypted data (iv is not used with createDecipher)
-    const tag = Buffer.from(encryptedData.slice(IV_LENGTH * 2, (IV_LENGTH + TAG_LENGTH) * 2), 'hex');
-    const encrypted = encryptedData.slice((IV_LENGTH + TAG_LENGTH) * 2);
+    // Extract IV and encrypted data
+    const ivHex = encryptedData.slice(0, 32); // First 32 hex chars = 16 bytes IV
+    const encrypted = encryptedData.slice(32);
+    const iv = Buffer.from(ivHex, 'hex');
     
-    const decipher = crypto.createDecipher(ALGORITHM, key);
-    decipher.setAAD(Buffer.from('discord-token', 'utf8'));
-    decipher.setAuthTag(tag);
+    const decipher = crypto.createDecipheriv('aes-256-cbc', keyBuffer, iv);
     
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
@@ -77,7 +65,7 @@ export function decrypt(encryptedData: string): string {
  * Generate a new encryption key (for initial setup)
  */
 export function generateEncryptionKey(): string {
-  return crypto.randomBytes(KEY_LENGTH).toString('hex');
+  return crypto.randomBytes(32).toString('hex'); // 32 bytes = 256 bits
 }
 
 /**

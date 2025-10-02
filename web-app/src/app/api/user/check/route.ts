@@ -2,17 +2,25 @@ import { NextRequest } from 'next/server';
 import { connectToDatabase } from '../../../lib/mongodb';
 import { withRateLimit } from '../../../lib/rate-limiter';
 import { createSecureResponse, createSecureErrorResponse } from '@/lib/security-headers';
+import { validateRequestBody, checkUserRequestSchema, sanitizeWalletAddress } from '../../../lib/validation';
 
 async function checkUserHandler(request: NextRequest) {
   try {
-    const { walletAddress } = await request.json();
+    const rawBody = await request.json();
     
-    if (!walletAddress) {
-      return createSecureErrorResponse('Wallet address is required', 400);
+    // Validate and sanitize input
+    let validatedData;
+    try {
+      validatedData = validateRequestBody(checkUserRequestSchema, rawBody);
+    } catch (error) {
+      return createSecureErrorResponse(`Validation error: ${error instanceof Error ? error.message : 'Invalid input'}`, 400);
     }
 
+    const { walletAddress } = validatedData;
+    const sanitizedWalletAddress = sanitizeWalletAddress(walletAddress);
+
     const { db } = await connectToDatabase();
-    const user = await db.collection('users').findOne({ walletAddress });
+    const user = await db.collection('users').findOne({ walletAddress: sanitizedWalletAddress });
     
     return createSecureResponse({ exists: !!user });
   } catch (error) {
