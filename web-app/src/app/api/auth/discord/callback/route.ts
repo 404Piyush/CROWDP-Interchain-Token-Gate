@@ -170,9 +170,13 @@ async function discordCallbackHandler(request: NextRequest) {
         });
 
         if (response.ok) {
-          console.log(`Successfully removed roles for user ${discordUser.username} (balance: ${osmoBalance})`);
+          // Sanitize username to prevent format string attacks
+          const sanitizedUsername = discordUser.username?.replace(/[%${}]/g, '') || 'unknown';
+          console.log(`Successfully removed roles for user ${sanitizedUsername} (balance: ${osmoBalance})`);
         } else {
-          console.error(`Failed to remove roles for user ${discordUser.username}:`, await response.text());
+          // Sanitize username to prevent format string attacks
+          const sanitizedUsername = discordUser.username?.replace(/[%${}]/g, '') || 'unknown';
+          console.error('Failed to remove roles for user:', sanitizedUsername, 'Error:', await response.text());
         }
       } catch (error) {
         console.error('Error calling Discord bot for role removal:', error);

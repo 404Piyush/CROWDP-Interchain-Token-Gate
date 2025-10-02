@@ -12,22 +12,25 @@ function getEncryptionKey(): string {
 }
 
 /**
- * Encrypt sensitive data (like Discord tokens) using AES-256-CBC
+ * Encrypt sensitive data (like Discord tokens) using AES-256-GCM with integrity protection
  */
 export function encrypt(text: string): string {
   try {
     const key = getEncryptionKey();
     // Ensure key is 32 bytes for AES-256
     const keyBuffer = Buffer.from(key.slice(0, 64), 'hex'); // Take first 64 hex chars = 32 bytes
-    const iv = crypto.randomBytes(16); // 16 bytes for AES-256-CBC
+    const iv = crypto.randomBytes(12); // 12 bytes for AES-256-GCM (recommended)
     
-    const cipher = crypto.createCipheriv('aes-256-cbc', keyBuffer, iv);
+    const cipher = crypto.createCipheriv('aes-256-gcm', keyBuffer, iv);
     
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     
-    // Combine iv + encrypted data
-    const combined = iv.toString('hex') + encrypted;
+    // Get the authentication tag for integrity protection
+    const authTag = cipher.getAuthTag();
+    
+    // Combine iv + authTag + encrypted data
+    const combined = iv.toString('hex') + authTag.toString('hex') + encrypted;
     return combined;
   } catch (error) {
     console.error('Encryption error:', error);
@@ -36,7 +39,7 @@ export function encrypt(text: string): string {
 }
 
 /**
- * Decrypt sensitive data (like Discord tokens) using AES-256-CBC
+ * Decrypt sensitive data (like Discord tokens) using AES-256-GCM with integrity verification
  */
 export function decrypt(encryptedData: string): string {
   try {
@@ -44,20 +47,24 @@ export function decrypt(encryptedData: string): string {
     // Ensure key is 32 bytes for AES-256
     const keyBuffer = Buffer.from(key.slice(0, 64), 'hex'); // Take first 64 hex chars = 32 bytes
     
-    // Extract IV and encrypted data
-    const ivHex = encryptedData.slice(0, 32); // First 32 hex chars = 16 bytes IV
-    const encrypted = encryptedData.slice(32);
-    const iv = Buffer.from(ivHex, 'hex');
+    // Extract IV (12 bytes = 24 hex chars), auth tag (16 bytes = 32 hex chars), and encrypted data
+    const ivHex = encryptedData.slice(0, 24); // First 24 hex chars = 12 bytes IV
+    const authTagHex = encryptedData.slice(24, 56); // Next 32 hex chars = 16 bytes auth tag
+    const encrypted = encryptedData.slice(56); // Remaining data
     
-    const decipher = crypto.createDecipheriv('aes-256-cbc', keyBuffer, iv);
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+    
+    const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, iv);
+    decipher.setAuthTag(authTag); // Set auth tag for integrity verification
     
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
+    decrypted += decipher.final('utf8'); // This will throw if integrity check fails
     
     return decrypted;
   } catch (error) {
     console.error('Decryption error:', error);
-    throw new Error('Failed to decrypt data');
+    throw new Error('Failed to decrypt data - data may be corrupted or tampered with');
   }
 }
 

@@ -126,8 +126,52 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
 
       const discordData = await discordResponse.json();
       
-      // Step 3: Redirect to Discord OAuth (NO wallet address in URL)
-      window.location.href = discordData.discordAuthUrl;
+      // Step 3: Validate and redirect to Discord OAuth (NO wallet address in URL)
+      // Validate the Discord OAuth URL to prevent open redirect attacks
+      const discordAuthUrl = discordData.discordAuthUrl;
+      
+      // Ensure the URL is a valid Discord OAuth URL
+      if (!discordAuthUrl || typeof discordAuthUrl !== 'string') {
+        throw new Error('Invalid Discord OAuth URL received');
+      }
+      
+      // Validate that the URL is from Discord's domain
+      try {
+        const url = new URL(discordAuthUrl);
+        if (url.hostname !== 'discord.com') {
+          throw new Error('Invalid Discord OAuth domain');
+        }
+        
+        // Ensure it's the correct OAuth endpoint
+        if (!url.pathname.startsWith('/api/oauth2/authorize')) {
+          throw new Error('Invalid Discord OAuth endpoint');
+        }
+        
+        // Validate required OAuth parameters are present
+        const requiredParams = ['client_id', 'redirect_uri', 'response_type', 'scope', 'state'];
+        for (const param of requiredParams) {
+          if (!url.searchParams.has(param)) {
+            throw new Error(`Missing required OAuth parameter: ${param}`);
+          }
+        }
+        
+        // Validate redirect_uri points to our application
+        const redirectUri = url.searchParams.get('redirect_uri');
+        if (redirectUri) {
+          const redirectUrl = new URL(redirectUri);
+          const allowedHosts = ['localhost', '127.0.0.1'];
+          const currentHost = window.location.hostname;
+          
+          if (!allowedHosts.includes(redirectUrl.hostname) && redirectUrl.hostname !== currentHost) {
+            throw new Error('Invalid redirect URI in OAuth URL');
+          }
+        }
+        
+        // All validations passed, safe to redirect
+        window.location.href = discordAuthUrl;
+      } catch (urlError) {
+        throw new Error('Invalid Discord OAuth URL format');
+      }
     } catch (err) {
       console.error('Discord connection failed:', err);
       setError(`Failed to connect Discord: ${err instanceof Error ? err.message : 'Please try again.'}`);
