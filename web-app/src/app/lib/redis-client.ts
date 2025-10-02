@@ -108,7 +108,7 @@ export async function isRedisAvailable(): Promise<boolean> {
     const client = await getRedisClient();
     await client.ping();
     return true;
-  } catch (error) {
+  } catch {
     // Only log in production or first time in development
     if (process.env.NODE_ENV !== 'development' || !redisConnectionFailed) {
       console.warn('Redis is not available, falling back to in-memory rate limiting');
