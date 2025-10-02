@@ -51,6 +51,24 @@ This guide outlines the security measures implemented and configuration requirem
 - **CORS**: Strict origin control with credentials support
 - **Cache Control**: No-cache policies for sensitive endpoints
 
+### 🔒 Cryptographic Security
+
+#### 8. Elliptic Vulnerability Mitigation (CVE-2024-48948)
+- **Issue**: Resolved critical vulnerability in elliptic 6.6.1 causing improper cryptographic signature verification
+- **Solution**: Migrated to `@noble/secp256k1` v2.2.0 - a fast, audited, zero-dependency alternative
+- **Implementation**: Package overrides in `package.json` force replacement of vulnerable elliptic package
+- **Verification**: All npm audit vulnerabilities resolved (0 vulnerabilities)
+- **Compatibility**: Maintained full compatibility with Keplr wallet integration and Cosmos ecosystem
+
+#### 9. Secure Cryptographic Libraries
+- **Primary**: `@noble/secp256k1` v2.2.0 for secp256k1 operations
+- **CosmJS**: Updated to v0.36.0 which uses `@noble/curves` internally
+- **Benefits**: 
+  - Zero external dependencies reducing attack surface
+  - Professional security audits and active maintenance
+  - Better performance than legacy elliptic library
+  - Prevents signature malleability attacks
+
 ## Environment Configuration
 
 ### Required Environment Variables
