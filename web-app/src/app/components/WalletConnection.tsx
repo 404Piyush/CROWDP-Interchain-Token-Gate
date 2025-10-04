@@ -200,8 +200,33 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
           throw new Error('Missing redirect_uri in Discord OAuth URL');
         }
         
-        // All validations passed, safe to redirect
-        window.location.href = discordAuthUrl;
+        // All validations passed, reconstruct URL from validated parameters for maximum security
+        const validatedUrl = new URL(discordAuthUrl);
+        
+        // Extract and validate required OAuth parameters
+        const validatedClientId = validatedUrl.searchParams.get('client_id');
+        const validatedRedirectUri = validatedUrl.searchParams.get('redirect_uri');
+        const validatedResponseType = validatedUrl.searchParams.get('response_type');
+        const validatedScope = validatedUrl.searchParams.get('scope');
+        const validatedState = validatedUrl.searchParams.get('state');
+        
+        // Validate required parameters exist
+        if (!validatedClientId || !validatedRedirectUri || !validatedResponseType || !validatedScope) {
+          throw new Error('Missing required OAuth parameters');
+        }
+        
+        // Construct secure Discord OAuth URL using validated parameters
+        const secureDiscordUrl = new URL('https://discord.com/api/oauth2/authorize');
+        secureDiscordUrl.searchParams.set('client_id', validatedClientId);
+        secureDiscordUrl.searchParams.set('redirect_uri', validatedRedirectUri);
+        secureDiscordUrl.searchParams.set('response_type', validatedResponseType);
+        secureDiscordUrl.searchParams.set('scope', validatedScope);
+        if (validatedState) {
+          secureDiscordUrl.searchParams.set('state', validatedState);
+        }
+        
+        // Safe redirect using reconstructed URL
+        window.location.href = secureDiscordUrl.toString();
       } catch (urlError) {
         console.error('URL validation failed:', urlError);
         throw new Error(`Invalid Discord OAuth URL: ${urlError instanceof Error ? urlError.message : 'Unknown error'}`);
