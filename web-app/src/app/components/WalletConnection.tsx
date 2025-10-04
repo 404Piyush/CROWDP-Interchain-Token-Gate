@@ -155,15 +155,27 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
           }
         }
         
-        // Validate redirect_uri points to our application
+        // Validate redirect_uri points to our application with strict whitelist
         const redirectUri = url.searchParams.get('redirect_uri');
         if (redirectUri) {
           const redirectUrl = new URL(redirectUri);
           const allowedHosts = ['localhost', '127.0.0.1'];
           const currentHost = window.location.hostname;
           
+          // Strict validation: only allow exact matches from whitelist or current host
           if (!allowedHosts.includes(redirectUrl.hostname) && redirectUrl.hostname !== currentHost) {
             throw new Error('Invalid redirect URI in OAuth URL');
+          }
+          
+          // Additional security: ensure protocol is HTTPS in production or HTTP for localhost
+          if (redirectUrl.protocol !== 'https:' && 
+              !(['localhost', '127.0.0.1'].includes(redirectUrl.hostname) && redirectUrl.protocol === 'http:')) {
+            throw new Error('Invalid redirect URI protocol');
+          }
+          
+          // Prevent path traversal and ensure redirect stays within our application
+          if (redirectUrl.pathname.includes('..') || redirectUrl.pathname.includes('//')) {
+            throw new Error('Invalid redirect URI path');
           }
         }
         
