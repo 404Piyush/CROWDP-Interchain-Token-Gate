@@ -127,7 +127,7 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
       const discordData = await discordResponse.json();
       
       // Step 3: Validate and redirect to Discord OAuth (NO wallet address in URL)
-      // Validate the Discord OAuth URL to prevent open redirect attacks
+      // Comprehensive validation of the Discord OAuth URL to prevent open redirect attacks
       const discordAuthUrl = discordData.discordAuthUrl;
       
       // Ensure the URL is a valid Discord OAuth URL
@@ -138,12 +138,19 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
       // Validate that the URL is from Discord's domain
       try {
         const url = new URL(discordAuthUrl);
-        if (url.hostname !== 'discord.com') {
+        
+        // Strict validation: Ensure it's a legitimate Discord OAuth URL
+        if (url.hostname !== 'discord.com' && url.hostname !== 'discordapp.com') {
           throw new Error('Invalid Discord OAuth domain');
         }
         
+        // Ensure HTTPS protocol for security
+        if (url.protocol !== 'https:') {
+          throw new Error('Discord OAuth URL must use HTTPS');
+        }
+        
         // Ensure it's the correct OAuth endpoint
-        if (!url.pathname.startsWith('/api/oauth2/authorize')) {
+        if (!url.pathname.startsWith('/api/oauth2/authorize') && !url.pathname.startsWith('/oauth2/authorize')) {
           throw new Error('Invalid Discord OAuth endpoint');
         }
         
@@ -155,6 +162,12 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
           }
         }
         
+        // Validate OAuth response type
+        const responseType = url.searchParams.get('response_type');
+        if (responseType !== 'code') {
+          throw new Error('Invalid OAuth response type');
+        }
+        
         // Validate redirect_uri points to our application with strict whitelist
         const redirectUri = url.searchParams.get('redirect_uri');
         if (redirectUri) {
@@ -164,7 +177,7 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
           
           // Strict validation: only allow exact matches from whitelist or current host
           if (!allowedHosts.includes(redirectUrl.hostname) && redirectUrl.hostname !== currentHost) {
-            throw new Error('Invalid redirect URI in OAuth URL');
+            throw new Error('Invalid redirect URI hostname');
           }
           
           // Additional security: ensure protocol is HTTPS in production or HTTP for localhost
@@ -177,12 +190,21 @@ export default function WalletConnection({ onWalletConnect }: WalletConnectionPr
           if (redirectUrl.pathname.includes('..') || redirectUrl.pathname.includes('//')) {
             throw new Error('Invalid redirect URI path');
           }
+          
+          // Ensure redirect URI points to our application's callback endpoint
+          if (!redirectUrl.pathname.startsWith('/api/auth/discord/callback') && 
+              !redirectUrl.pathname.startsWith('/auth/discord/callback')) {
+            throw new Error('Invalid redirect URI endpoint');
+          }
+        } else {
+          throw new Error('Missing redirect_uri in Discord OAuth URL');
         }
         
         // All validations passed, safe to redirect
         window.location.href = discordAuthUrl;
       } catch (urlError) {
-        throw new Error('Invalid Discord OAuth URL format');
+        console.error('URL validation failed:', urlError);
+        throw new Error(`Invalid Discord OAuth URL: ${urlError instanceof Error ? urlError.message : 'Unknown error'}`);
       }
     } catch (err) {
       console.error('Discord connection failed:', err);
