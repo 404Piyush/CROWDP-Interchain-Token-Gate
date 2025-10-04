@@ -14,11 +14,11 @@
 /coverage
 
 # next.js
-/.next/
+# /.next/  # Commented out to allow build files in production
 /out/
 
 # production
-/build
+# /build  # Commented out to allow build files in production
 
 # misc
 .DS_Store
