@@ -15,9 +15,10 @@ function validateMongoUri(uri: string): void {
     if (!url.username || !url.password) {
       console.warn('⚠️  MongoDB URI does not contain authentication credentials. This is insecure for production.');
       
-      // In production, require authentication (but allow build process to continue)
-      if (process.env.NODE_ENV === 'production' && process.env.VERCEL !== '1' && !process.env.NEXT_PHASE) {
-        throw new Error('MongoDB authentication is required in production environment');
+      // In production, require authentication only for remote connections (not localhost)
+      const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+      if (process.env.NODE_ENV === 'production' && process.env.VERCEL !== '1' && !process.env.NEXT_PHASE && !isLocalhost) {
+        throw new Error('MongoDB authentication is required in production environment for remote connections');
       }
     }
     
